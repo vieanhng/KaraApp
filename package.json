@@ -1,0 +1,33 @@
+{
+  "name": "kara-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"node server.js\" \"next dev\"",
+    "build": "next build",
+    "start": "concurrently \"node server.js\" \"next start\"",
+    "lint": "next lint",
+    "socket": "node server.js"
+  },
+  "dependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "framer-motion": "^12.23.26",
+    "lucide-react": "^0.562.0",
+    "next": "16.1.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-youtube": "^10.1.0",
+    "socket.io": "^4.8.2",
+    "socket.io-client": "^4.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
+    "typescript": "^5"
+  }
+}

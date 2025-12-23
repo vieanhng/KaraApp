@@ -1,0 +1,238 @@
+:root {
+  --background: #0a0a0c;
+  --foreground: #f0f0f5;
+  --primary: #8b5cf6;
+  --primary-hover: #7c3aed;
+  --secondary: #1e1e24;
+  --accent: #ec4899;
+  --glass: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --text-muted: #a1a1aa;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  overflow-x: hidden;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.premium-btn {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 0.8rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.premium-btn:hover {
+  background: var(--primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(139, 92, 246, 0.3);
+}
+
+.premium-btn:active {
+  transform: translateY(0);
+}
+
+.glass-card {
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 1.5rem;
+}
+
+input {
+  background: var(--secondary);
+  border: 1px solid var(--glass-border);
+  color: white;
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input:focus {
+  border-color: var(--primary);
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease forwards;
+}
+
+.control-btn-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+}
+
+.control-btn-circle:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+.control-btn-circle:active {
+  transform: scale(0.95);
+}
+
+/* Touch optimizations */
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Safe areas */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Hide landscape-only components by default (mobile/portrait) */
+.remote-side-nav,
+.remote-persistent-side {
+  display: none;
+}
+
+/* iPad/Tablet Landscape Optimization */
+@media (min-width: 768px) and (orientation: landscape) {
+  .remote-root {
+    max-width: 100% !important;
+    margin: 0 !important;
+    flex-direction: row !important;
+    border-radius: 0 !important;
+    border: none !important;
+  }
+
+  .remote-side-nav {
+    display: flex !important;
+    width: 250px !important;
+    height: 100dvh !important;
+    flex-direction: column !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-top: none !important;
+    position: static !important;
+    padding: 2.5rem 1rem !important;
+    justify-content: flex-start !important;
+    gap: 1.5rem !important;
+    background: rgba(10, 10, 12, 1) !important;
+  }
+
+  .remote-main-view {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    overflow: hidden !important;
+    position: relative !important;
+  }
+
+  .remote-tab-content {
+    flex: 1 !important;
+    padding: 2rem !important;
+    overflow-y: auto !important;
+    height: 100dvh !important;
+  }
+
+  .remote-persistent-side {
+    display: flex !important;
+    width: 350px !important;
+    border-left: 1px solid rgba(255, 255, 255, 0.05) !important;
+    background: rgba(255, 255, 255, 0.02) !important;
+    flex-direction: column !important;
+    padding: 2.5rem !important;
+    overflow-y: auto !important;
+    height: 100dvh !important;
+  }
+
+  .remote-header-mob {
+    display: none !important;
+  }
+
+  .remote-nav-mob {
+    display: none !important;
+  }
+
+  .remote-mini-player-mob {
+    display: none !important;
+  }
+
+  .nav-btn-label {
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
+  }
+
+  .remote-mini-player-mob {
+    display: none !important;
+  }
+}
