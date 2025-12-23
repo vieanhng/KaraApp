@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { useSocket } from '@/context/SocketContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ListMusic, Play, Pause, SkipForward, Mic2, Smartphone, Loader2, ArrowLeft } from 'lucide-react';
@@ -25,6 +25,21 @@ export default function RemotePage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<any[]>([]);
 
+    // Define handleJoin with useCallback to avoid dependency issues
+    const handleJoin = useCallback((code: string) => {
+        setSessionCode(code);
+        socket?.emit('join-session', code);
+    }, [socket]);
+
+    // Load saved session code from localStorage on mount
+    useEffect(() => {
+        const savedCode = localStorage.getItem('karaapp_session_code');
+        if (savedCode && socket && isConnected && !isJoined) {
+            console.log('🔄 Auto-reconnecting to saved session:', savedCode);
+            handleJoin(savedCode);
+        }
+    }, [socket, isConnected, isJoined, handleJoin]);
+
     useEffect(() => {
         if (!socket || !isConnected) return;
 
@@ -32,6 +47,11 @@ export default function RemotePage() {
             setIsJoined(true);
             setQueue(queue);
             setPlaybackState(playbackState);
+            // Save session code to localStorage
+            if (sessionCode) {
+                localStorage.setItem('karaapp_session_code', sessionCode);
+                console.log('💾 Session code saved to localStorage:', sessionCode);
+            }
         });
 
         socket.on('queue-updated', (newQueue) => {
@@ -45,11 +65,16 @@ export default function RemotePage() {
         socket.on('display-disconnected', () => {
             setIsJoined(false);
             setSessionCode(null);
+            localStorage.removeItem('karaapp_session_code');
             alert('Màn hình hiển thị đã ngắt kết nối.');
         });
 
         socket.on('error', (msg) => {
             alert(msg);
+            // If error, clear saved session
+            setIsJoined(false);
+            setSessionCode(null);
+            localStorage.removeItem('karaapp_session_code');
         });
 
         return () => {
@@ -59,11 +84,15 @@ export default function RemotePage() {
             socket.off('display-disconnected');
             socket.off('error');
         };
-    }, [socket, isConnected]);
+    }, [socket, isConnected, sessionCode]);
 
-    const handleJoin = (code: string) => {
-        setSessionCode(code);
-        socket?.emit('join-session', code);
+    const handleChangeCode = () => {
+        if (confirm('Bạn có chắc muốn đổi mã kết nối?')) {
+            setIsJoined(false);
+            setSessionCode(null);
+            localStorage.removeItem('karaapp_session_code');
+            console.log('🔄 Session code cleared, ready for new connection');
+        }
     };
 
     if (!isConnected) {
@@ -99,8 +128,8 @@ export default function RemotePage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                background: 'rgba(10,10,12,0.8)',
-                backdropFilter: 'blur(15px)',
+                background: 'rgba(10,10,12,0.9)',
+                backdropFilter: 'blur(8px)',
                 zIndex: 20
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
@@ -117,8 +146,8 @@ export default function RemotePage() {
                     </div>
                 </div>
                 <button
-                    onClick={() => { if (confirm('Ngắt kết nối?')) window.location.reload(); }}
-                    style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: '#a1a1aa', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    onClick={handleChangeCode}
+                    style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: '#a1a1aa', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                 >
                     <ArrowLeft size={18} />
                 </button>
@@ -142,10 +171,10 @@ export default function RemotePage() {
 
                     <div style={{ marginTop: 'auto', padding: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                         <button
-                            onClick={() => window.location.reload()}
-                            style={{ width: '100%', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', padding: '1rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer' }}
+                            onClick={handleChangeCode}
+                            style={{ width: '100%', background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', border: 'none', padding: '1rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer' }}
                         >
-                            Ngắt kết nối
+                            Đổi mã kết nối
                         </button>
                     </div>
                 </nav>
@@ -224,7 +253,7 @@ export default function RemotePage() {
                                 <SkipForward size={18} fill="white" />
                             </div>
                             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px', background: 'rgba(255,255,255,0.1)' }}>
-                                <motion.div animate={{ width: `${(playbackState.currentTime / playbackState.duration) * 100}%` }} transition={{ type: 'tween', ease: 'linear' }} style={{ height: '100%', background: 'linear-gradient(90deg, #8b5cf6, #ec4899)' }} />
+                                <div style={{ width: `${(playbackState.currentTime / playbackState.duration) * 100}%`, height: '100%', background: 'linear-gradient(90deg, #8b5cf6, #ec4899)', transition: 'width 0.3s linear' }} />
                             </div>
                         </motion.div>
                     )}
@@ -233,7 +262,7 @@ export default function RemotePage() {
 
             {/* Mobile Navigation */}
             <div className="remote-nav-mob" style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '600px', zIndex: 25 }}>
-                <nav className="pb-safe" style={{ background: 'rgba(10,10,12,0.85)', backdropFilter: 'blur(30px)', display: 'flex', justifyContent: 'space-around', padding: '0.8rem 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                <nav className="pb-safe" style={{ background: 'rgba(10,10,12,0.95)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'space-around', padding: '0.8rem 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                     <NavBtn active={activeTab === 'search'} onClick={() => setActiveTab('search')} icon={<Search size={22} />} label="Tìm bài" />
                     <NavBtn active={activeTab === 'queue'} onClick={() => setActiveTab('queue')} icon={<ListMusic size={22} />} label="Hàng chờ" badge={queue.length} />
                     <NavBtn active={activeTab === 'playing'} onClick={() => setActiveTab('playing')} icon={<Mic2 size={22} />} label="Đang hát" />
@@ -248,37 +277,41 @@ export default function RemotePage() {
     );
 }
 
-function NavBtn({ active, onClick, icon, label, badge, vertical = false }: any) {
+const NavBtn = memo(function NavBtn({ active, onClick, icon, label, badge, vertical = false }: any) {
+    const buttonStyle = useMemo(() => ({
+        background: vertical && active ? 'rgba(139, 92, 246, 0.1)' : 'none',
+        border: 'none',
+        color: active ? '#8b5cf6' : '#6b7280',
+        display: 'flex',
+        flexDirection: vertical ? 'row' : 'column',
+        alignItems: 'center',
+        gap: vertical ? '0.8rem' : '0.4rem',
+        padding: vertical ? '0.8rem 1rem' : '0',
+        borderRadius: vertical ? '12px' : '0',
+        cursor: 'pointer',
+        flex: vertical ? 'none' : 1,
+        width: vertical ? '100%' : 'auto',
+        position: 'relative',
+        transition: 'color 0.2s ease, background 0.2s ease',
+        justifyContent: vertical ? 'flex-start' : 'center'
+    }), [vertical, active]);
+
+    const iconStyle = useMemo(() => ({
+        transform: active ? (vertical ? 'scale(1)' : 'scale(1.1) translateY(-2px)') : 'scale(1)',
+        transition: 'transform 0.2s ease'
+    }), [active, vertical]);
+
     return (
-        <button
-            onClick={onClick}
-            style={{
-                background: vertical && active ? 'rgba(139, 92, 246, 0.1)' : 'none',
-                border: 'none',
-                color: active ? '#8b5cf6' : '#6b7280',
-                display: 'flex',
-                flexDirection: vertical ? 'row' : 'column',
-                alignItems: 'center',
-                gap: vertical ? '0.8rem' : '0.4rem',
-                padding: vertical ? '0.8rem 1rem' : '0',
-                borderRadius: vertical ? '12px' : '0',
-                cursor: 'pointer',
-                flex: vertical ? 'none' : 1,
-                width: vertical ? '100%' : 'auto',
-                position: 'relative',
-                transition: 'all 0.2s ease',
-                justifyContent: vertical ? 'flex-start' : 'center'
-            }}
-        >
-            <motion.div animate={{ scale: active ? 1.1 : 1, y: active && !vertical ? -2 : 0 }}>
+        <button onClick={onClick} style={buttonStyle as any}>
+            <div style={iconStyle}>
                 {icon}
-            </motion.div>
+            </div>
             <span style={{
                 fontSize: vertical ? '0.9rem' : '0.65rem',
                 fontWeight: active ? 700 : 600,
                 textTransform: vertical ? 'none' : 'uppercase',
                 letterSpacing: vertical ? '0' : '0.05em'
-            }}>
+            } as any}>
                 {label}
             </span>
             {badge > 0 && (
@@ -300,24 +333,22 @@ function NavBtn({ active, onClick, icon, label, badge, vertical = false }: any) 
                     border: '1.5px solid #0a0a0c',
                     boxShadow: '0 4px 12px rgba(139, 92, 246, 0.5)',
                     padding: vertical ? '0 4px' : '0'
-                }}>
+                } as any}>
                     {badge}
                 </span>
             )}
             {active && !vertical && (
-                <motion.div
-                    layoutId="nav-active"
-                    style={{
-                        position: 'absolute',
-                        bottom: -4,
-                        left: '50%',
-                        x: '-50%',
-                        width: '4px', height: '4px',
-                        borderRadius: '50%',
-                        background: '#8b5cf6'
-                    }}
-                />
+                <div style={{
+                    position: 'absolute',
+                    bottom: -4,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '4px',
+                    height: '4px',
+                    borderRadius: '50%',
+                    background: '#8b5cf6'
+                } as any} />
             )}
         </button>
     );
-}
+});

@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { Search, Plus, Loader2, Music } from 'lucide-react';
 import { useSocket } from '@/context/SocketContext';
-import { motion } from 'framer-motion';
 
 interface Props {
     code: string;
@@ -17,7 +16,7 @@ export default function SearchTab({ code, query, setQuery, results, setResults }
     const { socket } = useSocket();
     const [loading, setLoading] = useState(false);
 
-    const handleSearch = async (e: React.FormEvent) => {
+    const handleSearch = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();
         if (!query.trim()) return;
 
@@ -32,9 +31,9 @@ export default function SearchTab({ code, query, setQuery, results, setResults }
         } finally {
             setLoading(false);
         }
-    };
+    }, [query, setResults]);
 
-    const addToQueue = (video: any) => {
+    const addToQueue = useCallback((video: any) => {
         socket?.emit('add-to-queue', {
             code,
             item: {
@@ -48,7 +47,7 @@ export default function SearchTab({ code, query, setQuery, results, setResults }
 
         // Optional: visual feedback
         alert(`Đã thêm: ${video.title}`);
-    };
+    }, [socket, code]);
 
     return (
         <div>
@@ -88,35 +87,7 @@ export default function SearchTab({ code, query, setQuery, results, setResults }
                     </div>
                 ) : results.length > 0 ? (
                     results.map((video) => (
-                        <motion.div
-                            key={video.videoId}
-                            whileTap={{ scale: 0.98 }}
-                            style={{
-                                display: 'flex', gap: '1rem', alignItems: 'center',
-                                background: 'rgba(255,255,255,0.03)', padding: '0.8rem',
-                                borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)'
-                            }}
-                        >
-                            <img src={video.thumbnail} alt="" style={{ width: '90px', height: '60px', borderRadius: '12px', objectFit: 'cover', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }} />
-                            <div style={{ flex: 1, overflow: 'hidden' }}>
-                                <p style={{ fontSize: '0.9rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{video.title}</p>
-                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.2rem' }}>
-                                    <span style={{ fontSize: '0.7rem', color: '#a1a1aa' }}>{video.authorName}</span>
-                                    <span style={{ fontSize: '0.7rem', color: '#4b5563' }}>• {video.duration}</span>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => addToQueue(video)}
-                                style={{
-                                    background: '#8b5cf6', color: '#fff', border: 'none',
-                                    width: '36px', height: '36px', borderRadius: '12px',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                <Plus size={20} />
-                            </button>
-                        </motion.div>
+                        <VideoCard key={video.videoId} video={video} onAdd={addToQueue} />
                     ))
                 ) : (
                     <div style={{ textAlign: 'center', padding: '4rem 2rem', color: '#4b5563' }}>
@@ -128,3 +99,43 @@ export default function SearchTab({ code, query, setQuery, results, setResults }
         </div>
     );
 }
+
+const VideoCard = memo(function VideoCard({ video, onAdd }: { video: any; onAdd: (v: any) => void }) {
+    return (
+        <div
+            style={{
+                display: 'flex', gap: '1rem', alignItems: 'center',
+                background: 'rgba(255,255,255,0.03)', padding: '0.8rem',
+                borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)',
+                transition: 'transform 0.1s ease',
+                cursor: 'pointer'
+            }}
+            onTouchStart={(e) => {
+                (e.currentTarget as HTMLElement).style.transform = 'scale(0.98)';
+            }}
+            onTouchEnd={(e) => {
+                (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
+            }}
+        >
+            <img src={video.thumbnail} alt="" style={{ width: '90px', height: '60px', borderRadius: '12px', objectFit: 'cover', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }} />
+            <div style={{ flex: 1, overflow: 'hidden' }}>
+                <p style={{ fontSize: '0.9rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{video.title}</p>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.2rem' }}>
+                    <span style={{ fontSize: '0.7rem', color: '#a1a1aa' }}>{video.authorName}</span>
+                    <span style={{ fontSize: '0.7rem', color: '#4b5563' }}>• {video.duration}</span>
+                </div>
+            </div>
+            <button
+                onClick={() => onAdd(video)}
+                style={{
+                    background: '#8b5cf6', color: '#fff', border: 'none',
+                    width: '36px', height: '36px', borderRadius: '12px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer'
+                }}
+            >
+                <Plus size={20} />
+            </button>
+        </div>
+    );
+});

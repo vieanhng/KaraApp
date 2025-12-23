@@ -20,25 +20,36 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     const [isConnected, setIsConnected] = useState(false);
 
     useEffect(() => {
-        // Determine the socket URL. In dev, it's likely localhost:3001.
-        // In production, it might be the same origin or a different one.
-        const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
+        // Determine the socket URL automatically based on the current origin
+        // This allows the socket to work on both localhost and when accessed via IP address (e.g., from mobile)
+        const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+
+        console.log('🔌 Attempting to connect to Socket.IO server at:', socketUrl);
 
         const newSocket = io(socketUrl);
 
         newSocket.on('connect', () => {
-            console.log('Connected to socket server');
+            console.log('✅ Connected to socket server');
             setIsConnected(true);
         });
 
         newSocket.on('disconnect', () => {
-            console.log('Disconnected from socket server');
+            console.log('❌ Disconnected from socket server');
             setIsConnected(false);
+        });
+
+        newSocket.on('connect_error', (error) => {
+            console.error('❌ Socket connection error:', error);
+        });
+
+        newSocket.on('connect_timeout', () => {
+            console.error('⏱️ Socket connection timeout');
         });
 
         setSocket(newSocket);
 
         return () => {
+            console.log('🔌 Closing socket connection');
             newSocket.close();
         };
     }, []);

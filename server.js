@@ -29,6 +29,7 @@ nextApp.prepare().then(() => {
     }
 
     io.on('connection', (socket) => {
+        console.log('✅ Socket.IO client connected:', socket.id);
         socket.on('create-session', (existingCode) => {
             let code = existingCode;
             if (code && sessions.has(code)) {
@@ -95,6 +96,7 @@ nextApp.prepare().then(() => {
         });
 
         socket.on('disconnect', () => {
+            console.log('❌ Socket.IO client disconnected:', socket.id);
             for (const [code, session] of sessions.entries()) {
                 if (session.displaySocketId === socket.id) {
                     io.to(code).emit('display-disconnected');
@@ -112,7 +114,7 @@ nextApp.prepare().then(() => {
         });
     });
 
-    app.all('*', (req, res) => {
+    app.use((req, res) => {
         return handle(req, res);
     });
 
