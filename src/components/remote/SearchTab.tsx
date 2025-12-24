@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, memo } from 'react';
+import { useState, useCallback, memo, useEffect } from 'react';
 import { Search, Plus, Loader2, Music } from 'lucide-react';
 import { useSocket } from '@/context/SocketContext';
 
@@ -15,6 +15,27 @@ interface Props {
 export default function SearchTab({ code, query, setQuery, results, setResults }: Props) {
     const { socket } = useSocket();
     const [loading, setLoading] = useState(false);
+
+    // Auto-search for "karaoke" on first load
+    useEffect(() => {
+        const performInitialSearch = async () => {
+            // Only search if results are empty and query is empty
+            if (results.length === 0 && !query) {
+                setLoading(true);
+                try {
+                    const resp = await fetch(`/api/search?video=${encodeURIComponent('karaoke')}`);
+                    const data = await resp.json();
+                    setResults(data.result?.slice(0, 15) || []);
+                } catch (err) {
+                    console.error('Initial search error:', err);
+                } finally {
+                    setLoading(false);
+                }
+            }
+        };
+
+        performInitialSearch();
+    }, []); // Empty dependency array - only run once on mount
 
     const handleSearch = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();

@@ -5,6 +5,7 @@ import { useSocket } from '@/context/SocketContext';
 import YouTube, { YouTubeProps, YouTubePlayer } from 'react-youtube';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic2, Loader2, ListMusic, Play, Pause, SkipForward, Smartphone, RefreshCw } from 'lucide-react';
+import ScoreScreen from '@/components/display/ScoreScreen';
 
 interface QueueItem {
     videoId: string;
@@ -25,9 +26,14 @@ export default function DisplayPage() {
     const [isFullScreen, setIsFullScreen] = useState(false);
     const [showControls, setShowControls] = useState(false);
     const [showTitleToast, setShowTitleToast] = useState(false);
+    const [showScoreScreen, setShowScoreScreen] = useState(false);
+    const [currentScore, setCurrentScore] = useState(0);
+    const [scoredSongTitle, setScoredSongTitle] = useState('');
     const playerRef = useRef<YouTubePlayer | null>(null);
     const sessionCodeRef = useRef<string | null>(null);
     const queueRef = useRef<QueueItem[]>([]);
+    const skipTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const pendingCommandRef = useRef<string | null>(null);
 
     useEffect(() => {
         queueRef.current = queue;
@@ -54,15 +60,16 @@ export default function DisplayPage() {
     }, [isPlaying, currentVideo]);
 
     useEffect(() => {
-        if (!isPlaying || !currentVideo || !playerRef.current || !sessionCodeRef.current) return;
+        const code = sessionCodeRef.current;
+        if (!isPlaying || !currentVideo || !playerRef.current || !code) return;
 
         const interval = setInterval(() => {
             const p = playerRef.current;
-            if (p) {
+            if (p && typeof p.getCurrentTime === 'function') {
                 const currentTime = p.getCurrentTime();
                 const duration = p.getDuration();
                 socket?.emit('update-playback', {
-                    code: sessionCodeRef.current,
+                    code: code,
                     state: {
                         currentTime: Math.floor(currentTime),
                         duration: Math.floor(duration)
@@ -104,13 +111,19 @@ export default function DisplayPage() {
 
         socket.on('player-command', ({ command, data }) => {
             const p = playerRef.current;
-            if (!p) return;
+            if (!p) {
+                console.log('⏳ Player not ready, buffering command:', command);
+                pendingCommandRef.current = command;
+                return;
+            }
 
             switch (command) {
                 case 'play':
+                    console.log('▶️ Play command received');
                     p.playVideo();
                     break;
                 case 'pause':
+                    console.log('⏸️ Pause command received');
                     p.pauseVideo();
                     break;
                 case 'skip':
@@ -138,10 +151,19 @@ export default function DisplayPage() {
         }
     }, [queue, currentVideo]);
 
-    const playNext = (targetQueue = queue) => {
+    const playNext = (targetQueue?: QueueItem[]) => {
         const code = sessionCodeRef.current;
-        if (targetQueue.length > 0) {
-            const next = targetQueue[0];
+
+        // Clear any pending auto-skip timer
+        if (skipTimerRef.current) {
+            clearTimeout(skipTimerRef.current);
+            skipTimerRef.current = null;
+        }
+
+        const actualQueue = targetQueue || queueRef.current;
+
+        if (actualQueue.length > 0) {
+            const next = actualQueue[0];
             setCurrentVideo(next);
 
             // Update queue on server (remove first item)
@@ -149,7 +171,11 @@ export default function DisplayPage() {
                 socket?.emit('remove-from-queue', { code: code, index: 0 });
                 socket?.emit('update-playback', {
                     code: code,
-                    state: { currentVideo: next, isPlaying: true }
+                    state: {
+                        currentVideo: next,
+                        isPlaying: false, // Ensure initial state is clean
+                        currentTime: 0
+                    }
                 });
             }
         } else {
@@ -164,8 +190,9 @@ export default function DisplayPage() {
     };
 
     const handleResetSession = () => {
-        if (sessionCode && confirm('Bạn có chắc chắn muốn đổi mã kết nối mới? Mọi thiết bị đang kết nối sẽ bị ngắt.')) {
-            socket?.emit('reset-session', sessionCode);
+        const code = sessionCodeRef.current;
+        if (code && confirm('Bạn có chắc chắn muốn đổi mã kết nối mới? Mọi thiết bị đang kết nối sẽ bị ngắt.')) {
+            socket?.emit('reset-session', code);
             localStorage.removeItem('karaoke_session_code');
         }
     };
@@ -183,8 +210,32 @@ export default function DisplayPage() {
     };
 
     const onPlayerReady: YouTubeProps['onReady'] = (event) => {
+        console.log('✅ YouTube Player Ready');
         playerRef.current = event.target;
         setPlayer(event.target);
+
+        // Execute pending command if any
+        if (pendingCommandRef.current) {
+            const cmd = pendingCommandRef.current;
+            pendingCommandRef.current = null;
+            if (cmd === 'play') event.target.playVideo();
+            if (cmd === 'pause') event.target.pauseVideo();
+        } else {
+            // Default: try to autoplay
+            event.target.playVideo();
+        }
+
+        // Immediate report state
+        const code = sessionCodeRef.current;
+        if (code) {
+            socket?.emit('update-playback', {
+                code,
+                state: {
+                    isPlaying: event.target.getPlayerState() === 1,
+                    duration: Math.floor(event.target.getDuration())
+                }
+            });
+        }
     };
 
     const onPlayerStateChange: YouTubeProps['onStateChange'] = (event) => {
@@ -192,15 +243,29 @@ export default function DisplayPage() {
         // 1 = playing, 2 = paused, 0 = ended
         setIsPlaying(state === 1);
 
-        if (sessionCode) {
+        const code = sessionCodeRef.current;
+        if (code) {
             socket?.emit('update-playback', {
-                code: sessionCode,
+                code: code,
                 state: { isPlaying: state === 1 }
             });
         }
 
         if (state === 0) { // Ended
-            playNext();
+            // Generate score before moving to next song
+            if (currentVideo) {
+                const score = Math.floor(Math.random() * 50) + 50; // Random score 50-100
+                setCurrentScore(score);
+                setScoredSongTitle(currentVideo.title);
+                setShowScoreScreen(true);
+
+                // Delay playing next song
+                skipTimerRef.current = setTimeout(() => {
+                    playNext();
+                }, 8000); // Wait for score screen to auto-close
+            } else {
+                playNext();
+            }
         }
     };
 
@@ -554,6 +619,17 @@ export default function DisplayPage() {
                 </motion.div>
 
             </div>
+
+            {/* Score Screen Overlay */}
+            <AnimatePresence>
+                {showScoreScreen && (
+                    <ScoreScreen
+                        score={currentScore}
+                        songTitle={scoredSongTitle}
+                        onClose={() => setShowScoreScreen(false)}
+                    />
+                )}
+            </AnimatePresence>
 
             <style jsx global>{`
         .youtube-container iframe {
